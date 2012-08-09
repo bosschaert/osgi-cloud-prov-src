@@ -36,7 +36,7 @@
             <Bundle-SymbolicName>${project.name}</Bundle-SymbolicName>
             <Bundle-Activator>org.coderthoughts.cloud.provisioning.jmx.impl.Activator</Bundle-Activator>
             <Import-Package>*</Import-Package>
-            <Export-Package/>
+            <Export-Package>org.coderthoughts.cloud.provisioning.api</Export-Package>
             <Private-Package>org.coderthoughts.cloud.provisioning.jmx.impl</Private-Package>
           </instructions>
         </configuration>

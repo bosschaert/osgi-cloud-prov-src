@@ -4,11 +4,11 @@ import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 
 public class Activator implements BundleActivator {
-    private Provisioner provisioner;
+    private DemoProvisioner provisioner;
 
     @Override
     public void start(BundleContext context) throws Exception {
-        provisioner = new Provisioner(context);
+        provisioner = new DemoProvisioner(context);
         provisioner.start();
     }
 

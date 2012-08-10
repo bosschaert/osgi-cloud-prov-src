@@ -30,7 +30,7 @@
   </build>
 
   <modules>
-    <module>cloud-prov-jmx</module>
+    <module>cloud-prov-remsvc</module>
     <module>cloud-prov-demo</module>
   </modules>
 </project>

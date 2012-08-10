@@ -13,7 +13,7 @@ import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 
-import org.coderthoughts.cloud.provisioning.api.DeploymentChannel;
+import org.coderthoughts.cloud.provisioning.api.xxx.DeploymentChannel;
 import org.osgi.framework.ServiceReference;
 import org.osgi.jmx.framework.BundleStateMBean;
 

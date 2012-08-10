@@ -17,7 +17,7 @@ fi
 
 cp $TARGET/osgi/equinox/config-template/config.ini $TARGET/osgi/equinox/config/config.ini
 
-copy cloud-prov-jmx
+copy cloud-prov-remsvc
 copy cloud-prov-demo
 
 echo " " >> $TARGET/osgi/equinox/config/config.ini  

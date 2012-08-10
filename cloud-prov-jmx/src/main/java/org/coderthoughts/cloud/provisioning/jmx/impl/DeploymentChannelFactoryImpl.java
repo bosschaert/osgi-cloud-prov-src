@@ -1,7 +1,7 @@
 package org.coderthoughts.cloud.provisioning.jmx.impl;
 
-import org.coderthoughts.cloud.provisioning.api.DeploymentChannel;
-import org.coderthoughts.cloud.provisioning.api.DeploymentChannelFactory;
+import org.coderthoughts.cloud.provisioning.api.xxx.DeploymentChannel;
+import org.coderthoughts.cloud.provisioning.api.xxx.DeploymentChannelFactory;
 import org.osgi.framework.ServiceReference;
 
 class DeploymentChannelFactoryImpl implements DeploymentChannelFactory {

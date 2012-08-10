@@ -3,7 +3,10 @@ package org.coderthoughts.cloud.provisioning.demo.impl;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
@@ -21,6 +24,7 @@ public class DemoProvisioner {
     private final BundleContext bundleContext;
     private ServiceTracker frameworkTracker;
     private List<ServiceReference> frameworkReferences = new CopyOnWriteArrayList<ServiceReference>();
+    private List<ServiceReference> dynamicDeploymentFrameworks = new CopyOnWriteArrayList<ServiceReference>();
     private ServiceTracker remoteDeployerServiceTracker;
     private boolean fixedDeploymentsDone;
 
@@ -62,34 +66,32 @@ public class DemoProvisioner {
     }
 
     protected void handleTopologyChange(ServiceReference reference) {
-        if (fixedDeploymentsHandled())
-            handleDynamicDeployments();
+        handleFixedDeployments();
+        handleDynamicDeployments();
     }
 
-    private boolean fixedDeploymentsHandled() {
+    private void handleFixedDeployments() {
         if (fixedDeploymentsDone)
-            return true;
+            return;
 
-        String fixedFrameworkHost = "osgix-davidosgi.rhcloud.com";
-        System.out.println("*** Looking for framework on host: " + fixedFrameworkHost);
-        try {
-            Filter filter = bundleContext.createFilter("(org.coderthoughts.framework.ip=" + fixedFrameworkHost +")");
-            for (ServiceReference ref : frameworkReferences) {
-                if (filter.match(ref)) {
-                    System.out.println("*** Found fixed framework");
-                    deployWebToFramework(ref);
-                    fixedDeploymentsDone = true;
-                    return true;
-                }
+        for (ServiceReference ref : frameworkReferences) {
+            if (isFixedFramework(ref)) {
+                System.out.println("*** Found fixed framework");
+                deployWebToFramework(ref);
+                fixedDeploymentsDone = true;
+                return;
             }
-
-        } catch (InvalidSyntaxException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
         }
-        System.out.println("*** Fixed framework not found");
+    }
 
-        return false;
+    private boolean isFixedFramework(ServiceReference ref) {
+        try {
+            String fixedFrameworkHost = "osgix-davidosgi.rhcloud.com";
+            Filter filter = bundleContext.createFilter("(org.coderthoughts.framework.ip=" + fixedFrameworkHost +")");
+            return filter.match(ref);
+        } catch (InvalidSyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void deployWebToFramework(ServiceReference frameworkReference) {
@@ -103,8 +105,58 @@ public class DemoProvisioner {
     }
 
     private void handleDynamicDeployments() {
+        for (Iterator<ServiceReference> it = dynamicDeploymentFrameworks.iterator(); it.hasNext(); ) {
+            ServiceReference ref = it.next();
+            if (frameworkReferences.contains(ref)) {
+                // Already deployed, nothing to do
+                // TODO handle case where deployed to multiple frameworks
+                return;
+            } else {
+                // Framework has disappeared, remove from the list and redeploy elsewhere
+                it.remove();
+            }
+        }
+
+        // Deploy to framework with largest amount of free memory
+        ServiceReference fwRef = getDynamicDeploymentFramework();
+        if (fwRef == null) {
+            System.out.println("*** No dynamic framework to deploy to found yet");
+            return;
+        }
+
+        deployServiceProviderToFramework(fwRef);
+        dynamicDeploymentFrameworks.add(fwRef);
+
     }
 
+    private void deployServiceProviderToFramework(ServiceReference frameworkReference) {
+        RemoteDeployer rd = getRemoteDeployer(frameworkReference);
+        try {
+            deployBundles(rd, "/cloud-disco-demo-api-1.0.0-SNAPSHOT.jar", "/cloud-disco-demo-provider-1.0.0-SNAPSHOT.jar");
+            System.out.println("*** Service provider framework bundles deployed");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private ServiceReference getDynamicDeploymentFramework() {
+        SortedMap<Long, ServiceReference> frameworks = new TreeMap<Long, ServiceReference>();
+        for (ServiceReference ref : frameworkReferences) {
+            if (isFixedFramework(ref))
+                continue;
+
+            OSGiFramework fw = (OSGiFramework) bundleContext.getService(ref);
+            long mem = Long.parseLong(fw.getFrameworkVariable(OSGiFramework.FV_AVAILABLE_MEMORY));
+            frameworks.put(mem, ref);
+        }
+
+        if (frameworks.size() == 0)
+            return null;
+        else
+            return frameworks.values().iterator().next();
+    }
+
+    /*
     protected void testDeployment(ServiceReference frameworkReference) {
         RemoteDeployer rd = getRemoteDeployer(frameworkReference);
         System.out.println("***** " + rd.getSymbolicName(1));
@@ -115,6 +167,7 @@ public class DemoProvisioner {
             throw new RuntimeException(e);
         }
     }
+    */
 
     private void deployBundles(RemoteDeployer rd, String ... bundleURLs) throws IOException, BundleException {
         List<Long> ids = new ArrayList<Long>();

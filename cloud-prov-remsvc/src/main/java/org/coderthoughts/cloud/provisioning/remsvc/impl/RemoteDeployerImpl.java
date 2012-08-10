@@ -1,8 +1,12 @@
 package org.coderthoughts.cloud.provisioning.remsvc.impl;
 
+import java.io.ByteArrayInputStream;
+
+import org.coderthoughts.cloud.provisioning.api.Base64;
 import org.coderthoughts.cloud.provisioning.api.RemoteDeployer;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.BundleException;
 
 public class RemoteDeployerImpl implements RemoteDeployer {
     private final BundleContext bundleContext;
@@ -27,5 +31,21 @@ public class RemoteDeployerImpl implements RemoteDeployer {
         if (bundle == null)
             return null;
         return bundle.getSymbolicName();
+    }
+
+    @Override
+    public long installBundle(String location, byte [] base64Data) throws BundleException {
+        ByteArrayInputStream bais = new ByteArrayInputStream(Base64.decode(base64Data));
+        Bundle bundle = bundleContext.installBundle(location, bais);
+        return bundle.getBundleId();
+    }
+
+    @Override
+    public void startBundle(long id) throws BundleException {
+        Bundle bundle = bundleContext.getBundle(id);
+        if (bundle == null)
+            throw new IllegalStateException("No bundle with ID: " + id);
+
+        bundle.start();
     }
 }

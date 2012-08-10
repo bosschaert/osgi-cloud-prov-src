@@ -1,8 +1,10 @@
 package org.coderthoughts.cloud.provisioning.demo.impl;
 
+import java.net.URL;
 import java.util.concurrent.TimeUnit;
 
 import org.coderthoughts.cloud.framework.service.api.OSGiFramework;
+import org.coderthoughts.cloud.provisioning.api.Base64;
 import org.coderthoughts.cloud.provisioning.api.RemoteDeployer;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.Filter;
@@ -55,6 +57,15 @@ public class Provisioner {
     protected void testDeployment(ServiceReference frameworkReference) {
         RemoteDeployer rd = getRemoteDeployer(frameworkReference);
         System.out.println("***** " + rd.getSymbolicName(1));
+
+        URL url = getClass().getResource("/BundleUsingEmbeddedJar_1.0.0.jar");
+        try {
+            byte[] b64Data = Base64.encode(Streams.suck(url.openStream()));
+            long id = rd.installBundle("somelocation", b64Data);
+            rd.startBundle(id);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private RemoteDeployer getRemoteDeployer(ServiceReference frameworkReference) {

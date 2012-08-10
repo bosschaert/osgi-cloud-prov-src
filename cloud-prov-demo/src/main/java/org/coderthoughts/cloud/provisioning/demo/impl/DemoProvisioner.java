@@ -45,9 +45,6 @@ public class DemoProvisioner {
                 public Object addingService(ServiceReference reference) {
                     System.out.println("*** Remote Framework Added: " + reference.getProperty("org.coderthoughts.framework.ip"));
                     frameworkReferences.add(reference);
-                    /* */
-                    // testDeployment(reference);
-                    /* */
                     handleTopologyChange(reference);
                     return super.addingService(reference);
                 }
@@ -156,22 +153,14 @@ public class DemoProvisioner {
             return frameworks.values().iterator().next();
     }
 
-    /*
-    protected void testDeployment(ServiceReference frameworkReference) {
-        RemoteDeployer rd = getRemoteDeployer(frameworkReference);
-        System.out.println("***** " + rd.getSymbolicName(1));
-
-        try {
-            deployBundles(rd);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-    */
-
     private void deployBundles(RemoteDeployer rd, String ... bundleURLs) throws IOException, BundleException {
         List<Long> ids = new ArrayList<Long>();
         for (String u : bundleURLs) {
+            if (rd.getBundleID(u) != -1) {
+                System.out.println("*** Bundle with location: " + u + " is already deployed. Not redeploying.");
+                continue;
+            }
+
             URL url = getClass().getResource(u);
             byte[] b64Data = Base64.encode(Streams.suck(url.openStream()));
             ids.add(rd.installBundle(u, b64Data));
@@ -204,6 +193,19 @@ public class DemoProvisioner {
         }
         throw new IllegalStateException("Unable to find RemoteDeployer for framework: " + frameworkReference);
     }
+
+    /*
+    protected void testDeployment(ServiceReference frameworkReference) {
+        RemoteDeployer rd = getRemoteDeployer(frameworkReference);
+        System.out.println("***** " + rd.getSymbolicName(1));
+
+        try {
+            deployBundles(rd);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+    */
 
     void stop() {
         frameworkTracker.close();

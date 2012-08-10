@@ -26,6 +26,15 @@ public class RemoteDeployerImpl implements RemoteDeployer {
     }
 
     @Override
+    public long getBundleID(String location) {
+        for (Bundle b : bundleContext.getBundles()) {
+            if (b.getLocation().equals(location))
+                return b.getBundleId();
+        }
+        return -1;
+    }
+
+    @Override
     public String getSymbolicName(long id) {
         Bundle bundle = bundleContext.getBundle(id);
         if (bundle == null)

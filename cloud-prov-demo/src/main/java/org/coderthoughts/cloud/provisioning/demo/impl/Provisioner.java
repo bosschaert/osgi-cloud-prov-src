@@ -1,5 +1,7 @@
 package org.coderthoughts.cloud.provisioning.demo.impl;
 
+import java.util.concurrent.TimeUnit;
+
 import org.coderthoughts.cloud.framework.service.api.OSGiFramework;
 import org.coderthoughts.cloud.provisioning.api.RemoteDeployer;
 import org.osgi.framework.BundleContext;
@@ -11,12 +13,17 @@ import org.osgi.util.tracker.ServiceTracker;
 public class Provisioner {
     private final BundleContext bundleContext;
     private ServiceTracker frameworkTracker;
+    private ServiceTracker remoteDeployerServiceTracker;
 
     Provisioner(BundleContext context) {
         bundleContext = context;
     }
 
     void start() {
+        // This makes sure that RemoteDeployer service in other frameworks are looked up. It shouldn't really be needed
+        remoteDeployerServiceTracker = new ServiceTracker(bundleContext, RemoteDeployer.class.getName(), null);
+        remoteDeployerServiceTracker.open();
+
         try {
             Filter filter = bundleContext.createFilter("(&(objectClass=" +
                     OSGiFramework.class.getName() + ")(service.imported=*))");
@@ -46,23 +53,35 @@ public class Provisioner {
     }
 
     protected void testDeployment(ServiceReference frameworkReference) {
+        RemoteDeployer rd = getRemoteDeployer(frameworkReference);
+        System.out.println("***** " + rd.getSymbolicName(1));
+    }
+
+    private RemoteDeployer getRemoteDeployer(ServiceReference frameworkReference) {
+        int retries = 15;
+
         Object fwkUUID = frameworkReference.getProperty("endpoint.framework.uuid");
         if (fwkUUID == null)
             throw new IllegalStateException("Framework UUID not found for framework: " + frameworkReference);
 
         try {
-            ServiceReference[] refs = bundleContext.getServiceReferences(RemoteDeployer.class.getName(), "(endpoint.framework.uuid=" + fwkUUID + ")");
-            if (refs == null || refs.length == 0)
-                throw new IllegalStateException("Unable to find RemoteDeployer for framework: " + frameworkReference);
+            int i=0;
+            while (i < retries) {
+                ServiceReference[] refs = bundleContext.getServiceReferences(RemoteDeployer.class.getName(), "(endpoint.framework.uuid=" + fwkUUID + ")");
+                if (refs != null && refs.length > 0)
+                    return (RemoteDeployer) bundleContext.getService(refs[0]);
 
-            RemoteDeployer rd = (RemoteDeployer) bundleContext.getService(refs[0]);
-            System.out.println("***** " + rd.getSymbolicName(1));
-        } catch (InvalidSyntaxException e) {
+                TimeUnit.SECONDS.sleep(1);
+                i++;
+            }
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
+        throw new IllegalStateException("Unable to find RemoteDeployer for framework: " + frameworkReference);
     }
 
     void stop() {
         frameworkTracker.close();
+        remoteDeployerServiceTracker.close();
     }
 }

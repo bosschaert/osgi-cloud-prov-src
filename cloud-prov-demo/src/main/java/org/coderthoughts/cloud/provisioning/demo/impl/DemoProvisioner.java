@@ -3,7 +3,6 @@ package org.coderthoughts.cloud.provisioning.demo.impl;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -21,10 +20,12 @@ import org.osgi.framework.ServiceReference;
 import org.osgi.util.tracker.ServiceTracker;
 
 public class DemoProvisioner {
+    private static final String [] PROVIDER_BUNDLES = {"/cloud-disco-demo-api-1.0.0-SNAPSHOT.jar", "/cloud-disco-demo-provider-1.0.0-SNAPSHOT.jar"};
+
     private final BundleContext bundleContext;
     private ServiceTracker frameworkTracker;
     private List<ServiceReference> frameworkReferences = new CopyOnWriteArrayList<ServiceReference>();
-    private List<ServiceReference> dynamicDeploymentFrameworks = new CopyOnWriteArrayList<ServiceReference>();
+    private List<ServiceReference> serviceProviderFrameworks = new CopyOnWriteArrayList<ServiceReference>();
     private ServiceTracker remoteDeployerServiceTracker;
     private boolean fixedDeploymentsDone;
 
@@ -45,14 +46,18 @@ public class DemoProvisioner {
                 public Object addingService(ServiceReference reference) {
                     System.out.println("*** Remote Framework Added: " + reference.getProperty("org.coderthoughts.framework.ip"));
                     frameworkReferences.add(reference);
+                    if (isProviderFramework(reference))
+                        serviceProviderFrameworks.add(reference);
+
                     handleTopologyChange(reference);
                     return super.addingService(reference);
                 }
 
                 @Override
                 public void removedService(ServiceReference reference, Object service) {
-                    frameworkReferences.remove(reference);
                     System.out.println("*** Remote Framework Removed: " + reference.getProperty("org.coderthoughts.framework.ip"));
+                    frameworkReferences.remove(reference);
+                    handleTopologyChange(reference);
                     super.removedService(reference, service);
                 }
             };
@@ -60,6 +65,18 @@ public class DemoProvisioner {
         } catch (InvalidSyntaxException e) {
             e.printStackTrace();
         }
+    }
+
+    protected boolean isProviderFramework(ServiceReference reference) {
+        // Check whether the service provider bundles have already been deployed to this framework
+        System.out.println("*** Reading framework state");
+        RemoteDeployer rd = getRemoteDeployer(reference);
+
+        for (String location : PROVIDER_BUNDLES) {
+            if (rd.getBundleID(location) == -1)
+                return false;
+        }
+        return true;
     }
 
     protected void handleTopologyChange(ServiceReference reference) {
@@ -83,7 +100,7 @@ public class DemoProvisioner {
 
     private boolean isFixedFramework(ServiceReference ref) {
         try {
-            String fixedFrameworkHost = "osgix-davidosgi.rhcloud.com";
+            String fixedFrameworkHost = "web-coderthoughts2.rhcloud.com";
             Filter filter = bundleContext.createFilter("(org.coderthoughts.framework.ip=" + fixedFrameworkHost +")");
             return filter.match(ref);
         } catch (InvalidSyntaxException e) {
@@ -102,15 +119,15 @@ public class DemoProvisioner {
     }
 
     private void handleDynamicDeployments() {
-        for (Iterator<ServiceReference> it = dynamicDeploymentFrameworks.iterator(); it.hasNext(); ) {
-            ServiceReference ref = it.next();
+        ArrayList<ServiceReference> spfs = new ArrayList<ServiceReference>(serviceProviderFrameworks);
+        for (ServiceReference ref : spfs) {
             if (frameworkReferences.contains(ref)) {
                 // Already deployed, nothing to do
                 // TODO handle case where deployed to multiple frameworks
                 return;
             } else {
                 // Framework has disappeared, remove from the list and redeploy elsewhere
-                it.remove();
+                serviceProviderFrameworks.remove(ref);
             }
         }
 
@@ -122,14 +139,14 @@ public class DemoProvisioner {
         }
 
         deployServiceProviderToFramework(fwRef);
-        dynamicDeploymentFrameworks.add(fwRef);
+        serviceProviderFrameworks.add(fwRef);
 
     }
 
     private void deployServiceProviderToFramework(ServiceReference frameworkReference) {
         RemoteDeployer rd = getRemoteDeployer(frameworkReference);
         try {
-            deployBundles(rd, "/cloud-disco-demo-api-1.0.0-SNAPSHOT.jar", "/cloud-disco-demo-provider-1.0.0-SNAPSHOT.jar");
+            deployBundles(rd, PROVIDER_BUNDLES);
             System.out.println("*** Service provider framework bundles deployed");
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -144,13 +161,23 @@ public class DemoProvisioner {
 
             OSGiFramework fw = (OSGiFramework) bundleContext.getService(ref);
             long mem = Long.parseLong(fw.getFrameworkVariable(OSGiFramework.FV_AVAILABLE_MEMORY));
+            while(frameworks.get(mem) != null) {
+                // in case there is another framework with exactly the same amount of memory available,
+                // just add 1 to get the next free key.
+                mem++;
+            }
+
             frameworks.put(mem, ref);
         }
 
         if (frameworks.size() == 0)
             return null;
-        else
-            return frameworks.values().iterator().next();
+
+        Long highMem = frameworks.lastKey();
+        ServiceReference fwRef = frameworks.get(highMem);
+        System.out.println("*** Deploying provider service to framework with most memory: " +
+                fwRef.getProperty("org.coderthoughts.framework.ip") + "(" + highMem/1024l + " kb)");
+        return fwRef;
     }
 
     private void deployBundles(RemoteDeployer rd, String ... bundleURLs) throws IOException, BundleException {

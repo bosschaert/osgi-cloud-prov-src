@@ -55,29 +55,14 @@ public class DemoProvisioner {
             frameworkTracker = new ServiceTracker(bundleContext, filter, null) {
                 @Override
                 public Object addingService(ServiceReference reference) {
-                    try {
-                        System.out.println("*** Remote Framework Added: " + reference.getProperty("org.coderthoughts.framework.ip"));
-                        frameworkReferences.add(reference);
-                        if (isProviderFramework(reference))
-                            serviceProviderFrameworks.add(reference);
-
-                        handleTopologyChange();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    handleFrameworkAdded(reference);
                     return super.addingService(reference);
                 }
 
                 @Override
                 public void removedService(ServiceReference reference, Object service) {
-                    try {
-                        System.out.println("*** Remote Framework Removed: " + reference.getProperty("org.coderthoughts.framework.ip"));
-                        frameworkReferences.remove(reference);
-                        handleTopologyChange();
-                        super.removedService(reference, service);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    handleFrameworkRemoved(reference);
+                    super.removedService(reference, service);
                 }
             };
             frameworkTracker.open();
@@ -86,7 +71,42 @@ public class DemoProvisioner {
         }
     }
 
-    protected boolean isProviderFramework(ServiceReference reference) {
+    private void handleFrameworkAdded(final ServiceReference reference) {
+        // Do this asynchronously
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    System.out.println("*** Remote Framework Added: " + reference.getProperty("org.coderthoughts.framework.ip"));
+                    frameworkReferences.add(reference);
+                    if (isProviderFramework(reference))
+                        serviceProviderFrameworks.add(reference);
+
+                    handleTopologyChange();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+    }
+
+    private void handleFrameworkRemoved(final ServiceReference reference) {
+        // Do this asynchronously
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    System.out.println("*** Remote Framework Removed: " + reference.getProperty("org.coderthoughts.framework.ip"));
+                    frameworkReferences.remove(reference);
+                    handleTopologyChange();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+    }
+
+    private boolean isProviderFramework(ServiceReference reference) {
         // Check whether the service provider bundles have already been deployed to this framework
         System.out.println("*** Reading framework state");
         RemoteDeployer rd = getRemoteDeployer(reference);
@@ -98,7 +118,7 @@ public class DemoProvisioner {
         return true;
     }
 
-    protected void handleTopologyChange() {
+    private void handleTopologyChange() {
         handleFixedDeployments();
         handleFloatingDeployments();
     }

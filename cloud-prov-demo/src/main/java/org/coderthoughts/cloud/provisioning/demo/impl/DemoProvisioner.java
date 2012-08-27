@@ -81,7 +81,7 @@ public class DemoProvisioner {
 
     protected void handleTopologyChange() {
         handleFixedDeployments();
-        handleDynamicDeployments();
+        handleFloatingDeployments();
     }
 
     private void handleFixedDeployments() {
@@ -100,7 +100,7 @@ public class DemoProvisioner {
 
     private boolean isFixedFramework(ServiceReference ref) {
         try {
-            String fixedFrameworkHost = "web-coderthoughts2.rhcloud.com";
+            String fixedFrameworkHost = "web-*";
             Filter filter = bundleContext.createFilter("(org.coderthoughts.framework.ip=" + fixedFrameworkHost +")");
             return filter.match(ref);
         } catch (InvalidSyntaxException e) {
@@ -118,7 +118,7 @@ public class DemoProvisioner {
         }
     }
 
-    private void handleDynamicDeployments() {
+    private void handleFloatingDeployments() {
         ArrayList<ServiceReference> spfs = new ArrayList<ServiceReference>(serviceProviderFrameworks);
         for (ServiceReference ref : spfs) {
             if (frameworkReferences.contains(ref)) {
@@ -134,10 +134,11 @@ public class DemoProvisioner {
         // Deploy to framework with largest amount of free memory
         ServiceReference fwRef = getDynamicDeploymentFramework();
         if (fwRef == null) {
-            System.out.println("*** No dynamic framework to deploy to found yet");
+            System.out.println("*** No floating framework to deploy to found yet");
             return;
         }
 
+        System.out.println("*** Deploying to floating framework: " + fwRef);
         deployServiceProviderToFramework(fwRef);
         serviceProviderFrameworks.add(fwRef);
 

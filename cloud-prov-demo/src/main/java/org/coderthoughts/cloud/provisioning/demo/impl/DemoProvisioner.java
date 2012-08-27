@@ -49,7 +49,7 @@ public class DemoProvisioner {
                     if (isProviderFramework(reference))
                         serviceProviderFrameworks.add(reference);
 
-                    handleTopologyChange(reference);
+                    handleTopologyChange();
                     return super.addingService(reference);
                 }
 
@@ -57,7 +57,7 @@ public class DemoProvisioner {
                 public void removedService(ServiceReference reference, Object service) {
                     System.out.println("*** Remote Framework Removed: " + reference.getProperty("org.coderthoughts.framework.ip"));
                     frameworkReferences.remove(reference);
-                    handleTopologyChange(reference);
+                    handleTopologyChange();
                     super.removedService(reference, service);
                 }
             };
@@ -79,7 +79,7 @@ public class DemoProvisioner {
         return true;
     }
 
-    protected void handleTopologyChange(ServiceReference reference) {
+    protected void handleTopologyChange() {
         handleFixedDeployments();
         handleDynamicDeployments();
     }

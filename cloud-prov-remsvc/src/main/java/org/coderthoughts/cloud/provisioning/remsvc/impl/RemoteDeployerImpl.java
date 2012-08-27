@@ -16,7 +16,7 @@ public class RemoteDeployerImpl implements RemoteDeployer {
     }
 
     @Override
-    public long[] listBundleID() {
+    public long[] listBundleIDs() {
         Bundle[] bundles = bundleContext.getBundles();
         long[] ids = new long[bundles.length];
         for (int i=0; i < bundles.length; i++) {
@@ -51,10 +51,23 @@ public class RemoteDeployerImpl implements RemoteDeployer {
 
     @Override
     public void startBundle(long id) throws BundleException {
+        getBundle(id).start();
+    }
+
+    @Override
+    public void stopBundle(long id) throws BundleException {
+        getBundle(id).stop();
+    }
+
+    @Override
+    public void uninstallBundle(long id) throws BundleException {
+        getBundle(id).uninstall();
+    }
+
+    private Bundle getBundle(long id) {
         Bundle bundle = bundleContext.getBundle(id);
         if (bundle == null)
             throw new IllegalStateException("No bundle with ID: " + id);
-
-        bundle.start();
+        return bundle;
     }
 }
